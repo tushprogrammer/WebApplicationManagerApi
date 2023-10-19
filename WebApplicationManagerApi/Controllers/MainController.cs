@@ -1,7 +1,12 @@
 using ApplicationManager_ClassLibrary.Entitys;
+using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Net;
+using System.Text;
 using WebApplicationManagerApi.ContextFolder;
+using static System.Net.Mime.MediaTypeNames;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace WebApplicationManagerApi.Controllers
 {
@@ -12,11 +17,13 @@ namespace WebApplicationManagerApi.Controllers
 
         private readonly ApplicationDbContext Context;
         private readonly ILogger<MainController> _logger;
+        private readonly IWebHostEnvironment webHost;
 
-        public MainController(ILogger<MainController> logger, ApplicationDbContext context)
+        public MainController(ILogger<MainController> logger, ApplicationDbContext context, IWebHostEnvironment WebHost)
         {
             Context = context;
             _logger = logger;
+            webHost = WebHost;
         }
 
         [Route("GetMains")]
@@ -187,6 +194,95 @@ namespace WebApplicationManagerApi.Controllers
             Request requestNow = Context.Requests.First(i => i.Id == reqNow.Id);
             requestNow.StatusId = reqNow.StatusId;
             Context.SaveChanges();
+        }
+        [Route("EditMain")]
+        [HttpPost("EditMain")]
+        public IActionResult EditMain([FromForm] MainForm form, [FromForm] IFormFile image)
+        {
+            try
+            {
+                // Обработка экземпляра класса MainForm
+                // form содержит переданные данные формы (включая JSON)
+
+                // Сохранение изображения
+                if (image != null && image.Length > 0)
+                {
+                    string uploadPath =
+                    Path.Combine(webHost.WebRootPath, "Image");
+                    string UniqueName = Guid.NewGuid().ToString() + "_" + image.FileName;
+                    string FilePath = Path.Combine(uploadPath, UniqueName);
+                    image.CopyTo(new FileStream(FilePath, FileMode.Create));
+
+                    var sql = $@"
+                            UPDATE MainPage SET Value = CASE
+                                WHEN Id = 6 THEN N'{form.ButtonTitle}'
+                                WHEN Id = 7 THEN N'{form.Title}'
+                                WHEN Id = 8 THEN N'{UniqueName}'
+                                WHEN Id = 9 THEN N'{form.RequestTitle}'
+                                ELSE Value
+                            END
+                            WHERE Id IN (6, 7, 8, 9)";
+
+                    var rowsModified = Context.Database.ExecuteSqlRaw(sql);
+                }
+                else
+                {
+                    var sql = $@"
+                            UPDATE MainPage SET Value = CASE
+                                WHEN Id = 6 THEN N'{form.ButtonTitle}'
+                                WHEN Id = 7 THEN N'{form.Title}'
+                                WHEN Id = 9 THEN N'{form.RequestTitle}'
+                                ELSE Value
+                            END
+                            WHERE Id IN (6, 7, 9)";
+
+                    var rowsModified = Context.Database.ExecuteSqlRaw(sql);
+                }
+
+                // Вернуть успешный результат
+                return Ok("Данные успешно обработаны.");
+            }
+            catch (Exception ex)
+            {
+                // Вернуть ошибку в случае исключения
+                return BadRequest($"Произошла ошибка: {ex.Message}");
+            }
+        }
+        [Route("SaveNamePages")]
+        [HttpPost]
+        public IActionResult SaveNamePages([FromBody] List<MainPage> names, [FromBody] List<MainPage> NamesAdmin)
+        {
+            try
+            {
+                if (names.Count > 0 && NamesAdmin.Count > 0)
+                {
+                    for (int i = 0; i < names.Count; i++)
+                    {
+                        MainPage name_admin = NamesAdmin.Find(item => item.Name.Contains(names[i].Name));
+                        name_admin.Value = $"Ред. \"{names[i].Value}\"";
+                    }
+                    StringBuilder queryBuilder = new StringBuilder();
+
+                    for (int i = 0; i < names.Count; i++)
+                    {
+                        queryBuilder.Append($"UPDATE MainPage SET Value = CASE Id WHEN {names[i].Id} THEN N'{names[i].Value}' ELSE Value END;");
+                    }
+                    for (int i = 0; i < NamesAdmin.Count; i++)
+                    {
+                        queryBuilder.Append($"UPDATE MainPage SET Value = CASE Id WHEN {NamesAdmin[i].Id} THEN N'{NamesAdmin[i].Value}' ELSE Value END;");
+                    }
+
+
+                    var query = queryBuilder.ToString();
+                    var rowsModified = Context.Database.ExecuteSqlRaw(query);
+                    return Ok("Данные успешно обработаны.");
+                }
+                return BadRequest($"Произошла ошибка: не найдены новые названия страниц");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Произошла ошибка: {ex.Message}");
+            }
         }
     }
 }
