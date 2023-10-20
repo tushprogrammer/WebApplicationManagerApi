@@ -2,6 +2,7 @@ using ApplicationManager_ClassLibrary.Entitys;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 using System.Net;
 using System.Text;
 using WebApplicationManagerApi.ContextFolder;
@@ -81,7 +82,7 @@ namespace WebApplicationManagerApi.Controllers
 
             return requests;
         }
-
+        [Route("GetRequestsDate")]
         [HttpGet]
         public IQueryable<Request> GetRequests([FromQuery] DateTime DateFor, [FromQuery] DateTime DateTo)
         {
@@ -250,10 +251,16 @@ namespace WebApplicationManagerApi.Controllers
         }
         [Route("SaveNamePages")]
         [HttpPost]
-        public IActionResult SaveNamePages([FromBody] List<MainPage> names, [FromBody] List<MainPage> NamesAdmin)
+        public IActionResult SaveNamePages(/*[FromBody] List<MainPage> names, [FromBody] List<MainPage> NamesAdmin*/)
         {
             try
             {
+                var form = Request.ReadFormAsync().Result;
+                var namesJson = form["names"];
+                var NamesAdminJson = form["NamesAdmin"];
+
+                var names = JsonConvert.DeserializeObject<List<MainPage>>(namesJson);
+                var NamesAdmin = JsonConvert.DeserializeObject<List<MainPage>>(NamesAdminJson);
                 if (names.Count > 0 && NamesAdmin.Count > 0)
                 {
                     for (int i = 0; i < names.Count; i++)

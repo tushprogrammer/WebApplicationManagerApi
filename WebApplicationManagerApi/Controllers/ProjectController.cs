@@ -19,7 +19,7 @@ namespace WebApplicationManagerApi.Controllers
             Context = context;
             this.webHost = webHost;
         }
-
+        [Route("GetProjects")]
         [HttpGet]
         public IQueryable<Project> GetProjects()
         {

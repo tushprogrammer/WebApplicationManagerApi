@@ -3,6 +3,7 @@ using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 using WebApplicationManagerApi.ContextFolder;
 using static System.Net.Mime.MediaTypeNames;
 
@@ -31,13 +32,24 @@ namespace WebApplicationManagerApi.Controllers
         {
             return Context.SocialNets;
         }
+
         [Route("SaveContacts")]
         [HttpPost]
-        public IActionResult SaveContacts([FromBody] List<Contacts> edit_contacts, 
-            [FromBody] List<SocialNet> edit_socialNets, [FromBody] IFormFile image)
+        public IActionResult SaveContacts()
+        //public IActionResult SaveContacts([FromBody] List<Contacts> edit_contacts, [FromBody] List<SocialNet> edit_socialNets, [FromBody] IFormFile image)
         {
             try
             {
+                var form = Request.ReadFormAsync().Result;
+                var contactsJson = form["contacts"];
+                var socialNetsJson = form["socialNets"];
+                var image = form.Files.GetFile("image");
+
+                // Десериализуйте JSON данные
+                var edit_contacts = JsonConvert.DeserializeObject<List<Contacts>>(contactsJson);
+                var edit_socialNets = JsonConvert.DeserializeObject<List<SocialNet>>(socialNetsJson);
+
+
                 if (image != null)
                 {
                     string uploadPath =
