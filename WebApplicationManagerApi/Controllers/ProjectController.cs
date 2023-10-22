@@ -3,7 +3,9 @@ using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 using WebApplicationManagerApi.ContextFolder;
+using WebApplicationManagerApi.Models;
 using static System.Net.Mime.MediaTypeNames;
 
 namespace WebApplicationManagerApi.Controllers
@@ -57,17 +59,47 @@ namespace WebApplicationManagerApi.Controllers
                 return BadRequest($"Произошла ошибка: {ex.Message}");
             }
         }
-        [HttpGet]
-        public Project GetProject([FromBody] int id)
+
+        [Route("GetProjectModel")]
+        [HttpGet("id")]
+        public ProjectModel GetProjectModel(int id)
         {
-            return Context.Projects.FirstOrDefault(i => i.Id == id);
+            string currentDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            Project project_now = Context.Projects.FirstOrDefault(i => i.Id == id);
+            string uploadPath = Path.Combine(currentDirectory, "Images");
+            string FilePath = Path.Combine(uploadPath, project_now.ImageUrl);
+  
+            ProjectModel model = new()
+            {
+                Id = project_now.Id,
+                Description = project_now.Description,
+                NameCompany = project_now.NameCompany,
+                Title = project_now.Title,
+                Image_name = project_now.ImageUrl,
+                Image_byte = System.IO.File.ReadAllBytes(FilePath),                
+                Name_page = Context.MainPage.First(i => i.Id == 3).Value
+
+            };
+
+            return model;
         }
-        [Route("EditProject")]
+        [Route("GetProject")]
+        [HttpGet]
+        public Project GetProject(int id)
+        {
+            return Context.Projects.First(item => item.Id == id);
+        }
+
         [HttpPost("EditProject")]
-        public IActionResult EditProject([FromForm] Project edit_project, [FromForm] IFormFile image)
+        public IActionResult EditProject()
         {
             try
             {
+                var form = Request.ReadFormAsync().Result;
+                var edit_project_json = form["edit_project"];
+                Project edit_project = JsonConvert.DeserializeObject<Project>(edit_project_json);
+                IFormFile image = form.Files.GetFile("image");
+
                 // Сохранение изображения
                 if (image != null && image.Length > 0)
                 {
@@ -104,5 +136,6 @@ namespace WebApplicationManagerApi.Controllers
             Context.SaveChanges();
             return Ok();
         }
+        
     }
 }

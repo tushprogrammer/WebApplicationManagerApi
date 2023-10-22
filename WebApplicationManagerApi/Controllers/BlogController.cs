@@ -25,10 +25,11 @@ namespace WebApplicationManagerApi.Controllers
             return Context.Blogs;
         }
         [Route("GetBlog")]
-        [HttpGet("{id}")]
+        [HttpGet("id")]
         public Blog GetBlog(int id)
         {
-            return Context.Blogs.FirstOrDefault(i => i.Id == id);
+            Blog blog = Context.Blogs.FirstOrDefault(i => i.Id == id);
+            return blog;
         }
         [Route("AddBlog")]
         [HttpPost("AddBlog")]
