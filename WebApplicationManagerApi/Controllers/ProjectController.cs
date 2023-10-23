@@ -15,11 +15,9 @@ namespace WebApplicationManagerApi.Controllers
     public class ProjectController : Controller
     {
         private readonly ApplicationDbContext Context;
-        private readonly IWebHostEnvironment webHost;
-        public ProjectController(ApplicationDbContext context, IWebHostEnvironment webHost)
+        public ProjectController(ApplicationDbContext context)
         {
             Context = context;
-            this.webHost = webHost;
         }
         [Route("GetProjects")]
         [HttpGet]
@@ -118,17 +116,6 @@ namespace WebApplicationManagerApi.Controllers
                 Project_with_image = project_model,
                 Name_page = Context.MainPage.First(i => i.Id == 3).Value
             };
-            //ProjectModel model = new()
-            //{
-            //    Id = project_now.Id,
-            //    Description = project_now.Description,
-            //    NameCompany = project_now.NameCompany,
-            //    Title = project_now.Title,
-            //    Image_name = project_now.ImageUrl,
-            //    Image_byte = System.IO.File.ReadAllBytes(FilePath),                
-            //    Name_page = Context.MainPage.First(i => i.Id == 3).Value
-
-            //};
 
             return model;
         }

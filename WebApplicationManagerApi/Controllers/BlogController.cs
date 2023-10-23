@@ -3,7 +3,10 @@ using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
+using System.Linq;
 using WebApplicationManagerApi.ContextFolder;
+using WebApplicationManagerApi.Models;
 
 namespace WebApplicationManagerApi.Controllers
 {
@@ -12,39 +15,90 @@ namespace WebApplicationManagerApi.Controllers
     public class BlogController : ControllerBase
     {
         private readonly ApplicationDbContext Context;
-        private readonly IWebHostEnvironment webHost;
-        public BlogController(ApplicationDbContext context, IWebHostEnvironment webHost)
+        public BlogController(ApplicationDbContext context)
         {
             Context = context;
-            this.webHost = webHost;
         }
-
+        [Route("GetBlogs")]
         [HttpGet]
-        public IQueryable<Blog> GetBlogs()
+        public BlogsModel GetBlogs()
         {
-            return Context.Blogs;
+            IQueryable<Blog> blogs = Context.Blogs;
+            string currentDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            string uploadPath = Path.Combine(currentDirectory, "Images");
+            List<Blog_with_image> blog_s = new List<Blog_with_image>();
+            foreach (Blog blog_now in blogs)
+            {
+                string FilePath = Path.Combine(uploadPath, blog_now.ImageUrl);
+                blog_s.Add(new Blog_with_image()
+                {
+                    Id = blog_now.Id,
+                    Description = blog_now.Description,
+                    Title = blog_now.Title,
+                    Image_name = blog_now.ImageUrl,
+                    Image_byte = System.IO.File.ReadAllBytes(FilePath),
+                });
+            }
+            BlogsModel model = new()
+            {
+                Name_page = Context.MainPage.First(i => i.Id == 4).Value,
+                Blogs = blog_s,
+            };
+            return model;
         }
         [Route("GetBlog")]
         [HttpGet("id")]
         public Blog GetBlog(int id)
         {
-            Blog blog = Context.Blogs.FirstOrDefault(i => i.Id == id);
-            return blog;
+            return Context.Blogs.FirstOrDefault(i => i.Id == id);
         }
-        [Route("AddBlog")]
+        [Route("GetBlogModel")]
+        [HttpGet("id")]
+        public BlogModel GetBlogModel(int id)
+        {
+            Blog blog_now = Context.Blogs.FirstOrDefault(i => i.Id == id);
+            string currentDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            string uploadPath = Path.Combine(currentDirectory, "Images");
+            string FilePath = Path.Combine(uploadPath, blog_now.ImageUrl);
+            Blog_with_image blog_model = new()
+            {
+                Id = blog_now.Id,
+                Title = blog_now.Title,
+                Description = blog_now.Description,
+                Created = blog_now.Created,
+                Image_name = blog_now.ImageUrl,
+                Image_byte = System.IO.File.ReadAllBytes(FilePath),
+            };
+            BlogModel model = new()
+            {
+                Name_page = Context.MainPage.First(i => i.Id == 4).Value,
+                Blog_With_Image = blog_model,
+            };
+            return model;
+        }
         [HttpPost("AddBlog")]
-        public IActionResult AddBlog([FromForm] Blog new_blog, [FromForm] IFormFile image)
+        public async Task<IActionResult> AddBlogAsync()
         {
             try
             {
+                var form = Request.ReadFormAsync().Result;
+                var new_blog_json = form["new_blog"];
+                Blog new_blog = JsonConvert.DeserializeObject<Blog>(new_blog_json);
+                IFormFile image = form.Files.GetFile("image");
                 // Сохранение изображения
                 if (image != null && image.Length > 0)
                 {
-                    string uploadPath =
-                    Path.Combine(webHost.WebRootPath, "Image");
+                    string currentDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                    string uploadPath = Path.Combine(currentDirectory, "Images");
                     string UniqueName = Guid.NewGuid().ToString() + "_" + image.FileName;
                     string FilePath = Path.Combine(uploadPath, UniqueName);
-                    image.CopyTo(new FileStream(FilePath, FileMode.Create));
+
+                    using (var fileStream = new FileStream(FilePath, FileMode.Create))
+                    {
+                        // Асинхронно копируем содержимое файла в поток
+                        await image.CopyToAsync(fileStream);
+                    }
+
                     new_blog.ImageUrl = UniqueName;
                 }
                 else
@@ -63,20 +117,27 @@ namespace WebApplicationManagerApi.Controllers
             }
         }
 
-        [Route("EditBlog")]
         [HttpPost("EditBlog")]
-        public IActionResult EditBlog([FromForm] Blog edit_blog, [FromForm] IFormFile image)
+        public async Task<IActionResult> EditBlogAsync()
         {
             try
             {
+                var form = Request.ReadFormAsync().Result;
+                var edit_blog_json = form["edit_blog"];
+                Blog edit_blog = JsonConvert.DeserializeObject<Blog>(edit_blog_json);
+                IFormFile image = form.Files.GetFile("image");
                 // Сохранение изображения
                 if (image != null && image.Length > 0)
                 {
-                    string uploadPath =
-                    Path.Combine(webHost.WebRootPath, "Images");
+                    string currentDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                    string uploadPath = Path.Combine(currentDirectory, "Images");
                     string UniqueName = Guid.NewGuid().ToString() + "_" + image.FileName;
                     string FilePath = Path.Combine(uploadPath, UniqueName);
-                    image.CopyTo(new FileStream(FilePath, FileMode.Create));
+                    using (var fileStream = new FileStream(FilePath, FileMode.Create))
+                    {
+                        // Асинхронно копируем содержимое файла в поток
+                        await image.CopyToAsync(fileStream);
+                    }
                     //сохранение новых заголовков
                     var rowsModified = Context.Database.ExecuteSqlRaw(
                    $"UPDATE [Blogs] SET Title = N'{edit_blog.Title}', " +
