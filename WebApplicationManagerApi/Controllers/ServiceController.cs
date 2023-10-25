@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WebApplicationManagerApi.ContextFolder;
+using WebApplicationManagerApi.Models;
 
 namespace WebApplicationManagerApi.Controllers
 {
@@ -21,19 +22,32 @@ namespace WebApplicationManagerApi.Controllers
         {
             return Context.Services;
         }
-        [Route("GetService")]
-        [HttpGet("{id}")]
-        public Service GetService(int id)
+        [Route("GetServiceModel")]
+        [HttpGet("id")]
+        public DetailsServiceModel GetServiceModel(int id)
+        {
+            Service service_now = Context.Services.FirstOrDefault(i => i.Id == id);
+            DetailsServiceModel model = new()
+            {
+                Id = service_now.Id,
+                Title = service_now.Title,
+                Description = service_now.Description,
+                Name_page = Context.MainPage.First(i => i.Id == 2).Value,
+            };
+            return model; 
+        }
+        private Service GetService(int id)
         {
             return Context.Services.FirstOrDefault(i => i.Id == id);
         }
         [Route("AddService")]
         [HttpPost]
-        public async Task<IActionResult> AddService([FromBody] Service newService)
+        public IActionResult AddService([FromBody] Service newService)
         {
             try
             {
-                await Context.Services.AddAsync(newService);
+                Context.Services.Add(newService);
+                Context.SaveChanges();
                 return Ok();
             }
             catch (Exception ex)
@@ -42,12 +56,13 @@ namespace WebApplicationManagerApi.Controllers
             }
         }
         [Route("DeleteService")]
-        [HttpDelete]
+        [HttpDelete("id")]
         public IActionResult DeleteService(int id)
         {
             try
             {
                 Context.Remove(GetService(id));
+                Context.SaveChanges();
                 return Ok();
             }
             catch (Exception ex)
