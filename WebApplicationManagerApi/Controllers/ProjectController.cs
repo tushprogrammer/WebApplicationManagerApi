@@ -21,7 +21,7 @@ namespace WebApplicationManagerApi.Controllers
         }
         [Route("GetProjects")]
         [HttpGet]
-        public ProjectsModel GetProjects()
+        public async Task<ProjectsModel> GetProjects()
         {
             IQueryable<Project> projects = Context.Projects;
             string currentDirectory = AppDomain.CurrentDomain.BaseDirectory;
@@ -38,7 +38,7 @@ namespace WebApplicationManagerApi.Controllers
                     NameCompany = project_now.NameCompany,
                     Title = project_now.Title,
                     Image_name = project_now.ImageUrl,
-                    Image_byte = System.IO.File.ReadAllBytes(FilePath),
+                    Image_byte = await System.IO.File.ReadAllBytesAsync(FilePath),
                 });
             }
             ProjectsModel model = new()
@@ -56,7 +56,7 @@ namespace WebApplicationManagerApi.Controllers
         {
             try
             {
-                var form = Request.ReadFormAsync().Result;
+                var form = await Request.ReadFormAsync();
                 var new_project_json = form["new_project"];
                 Project new_project = JsonConvert.DeserializeObject<Project>(new_project_json);
                 IFormFile image = form.Files.GetFile("image");
@@ -81,8 +81,8 @@ namespace WebApplicationManagerApi.Controllers
                 {
                     new_project.ImageUrl = "/Default/default.png"; //имя по умолчанию
                 }
-                Context.Projects.Add(new_project);
-                Context.SaveChanges();
+                await Context.Projects.AddAsync(new_project);
+                await Context.SaveChangesAsync();
                 // Вернуть успешный результат
                 return Ok("Данные успешно обработаны.");
             }
@@ -95,9 +95,9 @@ namespace WebApplicationManagerApi.Controllers
 
         [Route("GetProjectModel")]
         [HttpGet("id")]
-        public ProjectModel GetProjectModel(int id)
+        public async Task<ActionResult<ProjectModel>> GetProjectModel(int id)
         {
-            Project project_now = Context.Projects.FirstOrDefault(i => i.Id == id);
+            Project project_now = await Context.Projects.FirstOrDefaultAsync(i => i.Id == id);
             string currentDirectory = AppDomain.CurrentDomain.BaseDirectory;
             string uploadPath = Path.Combine(currentDirectory, "Images");
             string FilePath = Path.Combine(uploadPath, project_now.ImageUrl);
@@ -109,7 +109,7 @@ namespace WebApplicationManagerApi.Controllers
                 NameCompany = project_now.NameCompany,
                 Title = project_now.Title,
                 Image_name = project_now.ImageUrl,
-                Image_byte = System.IO.File.ReadAllBytes(FilePath),
+                Image_byte = await System.IO.File.ReadAllBytesAsync(FilePath),
             };
             ProjectModel model = new()
             {
@@ -119,11 +119,12 @@ namespace WebApplicationManagerApi.Controllers
 
             return model;
         }
+
         [Route("GetProject")]
         [HttpGet]
-        public Project GetProject(int id)
+        public async Task<Project> GetProject(int id)
         {
-            return Context.Projects.First(item => item.Id == id);
+            return await Context.Projects.FirstAsync(item => item.Id == id);
         }
 
         [HttpPost("EditProject")]
@@ -131,7 +132,7 @@ namespace WebApplicationManagerApi.Controllers
         {
             try
             {
-                var form = Request.ReadFormAsync().Result;
+                var form = await Request.ReadFormAsync();
                 var edit_project_json = form["edit_project"];
                 Project edit_project = JsonConvert.DeserializeObject<Project>(edit_project_json);
                 IFormFile image = form.Files.GetFile("image");
@@ -149,13 +150,13 @@ namespace WebApplicationManagerApi.Controllers
                         await image.CopyToAsync(fileStream);
                     }
                     //сохранение новых заголовков
-                    var rowsModified = Context.Database.ExecuteSqlRaw(
+                    var rowsModified = await Context.Database.ExecuteSqlRawAsync(
                         $"UPDATE [Projects] SET Title = N'{edit_project.Title}', NameCompany = N'{edit_project.NameCompany}', " +
                         $" Description = N'{edit_project.Description}', ImageUrl = N'{UniqueName}' WHERE Id = {edit_project.Id}");
                 }
                 else
                 {
-                    var rowsModified = Context.Database.ExecuteSqlRaw(
+                    var rowsModified = await Context.Database.ExecuteSqlRawAsync(
                        $"UPDATE [Projects] SET Title = N'{edit_project.Title}', NameCompany = N'{edit_project.NameCompany}', " +
                        $" Description = N'{edit_project.Description}' WHERE Id = {edit_project.Id}");
                 }
@@ -170,10 +171,11 @@ namespace WebApplicationManagerApi.Controllers
         }
         [Route("DeleteProject")]
         [HttpDelete("id")]
-        public IActionResult DeleteProject(int id)
+        public async Task<IActionResult> DeleteProject(int id)
         {
-            Context.Projects.Remove(GetProject(id));
-            Context.SaveChanges();
+            Project project_now = await GetProject(id);
+            Context.Projects.Remove(project_now);
+            await Context.SaveChangesAsync();
             return Ok();
         }
         
