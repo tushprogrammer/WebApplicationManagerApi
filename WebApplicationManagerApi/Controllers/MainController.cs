@@ -6,6 +6,7 @@ using Newtonsoft.Json;
 using System.Net;
 using System.Text;
 using WebApplicationManagerApi.ContextFolder;
+using WebApplicationManagerApi.Models;
 using static System.Net.Mime.MediaTypeNames;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
@@ -36,18 +37,22 @@ namespace WebApplicationManagerApi.Controllers
 
         [Route("GetMainsIndexPage")]
         [HttpGet]
-        public MainForm GetMainsIndexPage()
+        public MainPageUploadModel GetMainsIndexPage()
         {
             // Butt_main, Title, Image_main, Main_request
             IQueryable<MainPage> data = Context.MainPage.Where(item => item.Id >= 6 && item.Id <= 9);
-            MainForm form = new()
+            string currentDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            string uploadPath = Path.Combine(currentDirectory, "Images");
+            string FilePath = Path.Combine(uploadPath, data.First(i => i.Id == 8).Value);
+
+            MainPageUploadModel model = new()
             {
-                ButtonTitle = data.First(i => i.Id == 6).Value,
                 Title = data.First(i => i.Id == 7).Value,
-                UrlImage = data.First(i => i.Id == 8).Value,
-                RequestTitle = data.First(i => i.Id == 6).Value,
+                ButtonTitle = data.First(i => i.Id == 6).Value,
+                RequestTitle = data.First(i => i.Id == 9).Value,
+                Image_byte = System.IO.File.ReadAllBytes(FilePath),
             };
-            return form;
+            return model;
         }
         [Route("GetMainsAdmin")]
         [HttpGet]
@@ -91,8 +96,9 @@ namespace WebApplicationManagerApi.Controllers
             SetStatusRequests(ref tempRequests);
             return tempRequests.AsQueryable();
         }
-        [HttpGet]
-        public IQueryable<Request> GetRequests([FromBody] string statusName)
+        [Route("GetRequestsStatus")]
+        [HttpGet("statusName")]
+        public IQueryable<Request> GetRequestsStatus(string statusName)
         {
             List<Request> tempRequests;
             if (statusName != string.Empty && statusName != null)
@@ -171,8 +177,12 @@ namespace WebApplicationManagerApi.Controllers
         }
         [Route("AddRequest")]
         [HttpPost]
-        public void AddRequest([FromBody] Request new_request)
+        public void AddRequest()
         {
+            //переделать
+            var data = Request.ReadFormAsync().Result;
+            string new_request_json = data["request"];
+            Request new_request = JsonConvert.DeserializeObject<Request>(new_request_json);
             Context.Requests.Add(new_request);
             Context.SaveChanges();
         }
@@ -182,37 +192,45 @@ namespace WebApplicationManagerApi.Controllers
         {
             return Context.Requests.Count();
         }
-        [Route("GetRequestsNow")]
-        [HttpGet]
-        public Request GetRequestsNow([FromBody] string requestId)
+        [Route("GetRequestNow")]
+        [HttpGet("requestId")]
+        public Request GetRequestNow(string requestId)
         {
             return Context.Requests.First(i => i.Id.ToString() == requestId);
         }
-        [Route("SaveNewStatusRequest")]
         [HttpPatch("SaveNewStatusRequest")]
-        public void SaveNewStatusRequest([FromBody] Request reqNow)
+        public void SaveNewStatusRequest()
         {
-            Request requestNow = Context.Requests.First(i => i.Id == reqNow.Id);
-            requestNow.StatusId = reqNow.StatusId;
+            var data = Request.ReadFormAsync().Result;
+            string new_request_json = data["request"];
+            Request reqNow = JsonConvert.DeserializeObject<Request>(new_request_json);
+            Request requestDB = Context.Requests.First(i => i.Id == reqNow.Id);
+            requestDB.StatusId = reqNow.StatusId;
             Context.SaveChanges();
         }
-        [Route("EditMain")]
+
         [HttpPost("EditMain")]
-        public IActionResult EditMain([FromForm] MainForm form, [FromForm] IFormFile image)
+        public async Task<IActionResult> EditMainAsync()
         {
             try
             {
-                // ќбработка экземпл€ра класса MainForm
-                // form содержит переданные данные формы (включа€ JSON)
+                var data = Request.ReadFormAsync().Result;
+                var main_form_json = data["form"];
+                MainForm form = JsonConvert.DeserializeObject<MainForm>(main_form_json);
+                IFormFile image = data.Files.GetFile("image");
 
                 // —охранение изображени€
                 if (image != null && image.Length > 0)
                 {
-                    string uploadPath =
-                    Path.Combine(webHost.WebRootPath, "Image");
+                    string currentDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                    string uploadPath = Path.Combine(currentDirectory, "Images");
                     string UniqueName = Guid.NewGuid().ToString() + "_" + image.FileName;
                     string FilePath = Path.Combine(uploadPath, UniqueName);
-                    image.CopyTo(new FileStream(FilePath, FileMode.Create));
+                    using (var fileStream = new FileStream(FilePath, FileMode.Create))
+                    {
+                        // јсинхронно копируем содержимое файла в поток
+                        await image.CopyToAsync(fileStream);
+                    }
 
                     var sql = $@"
                             UPDATE MainPage SET Value = CASE
@@ -251,7 +269,7 @@ namespace WebApplicationManagerApi.Controllers
         }
         [Route("SaveNamePages")]
         [HttpPost]
-        public IActionResult SaveNamePages(/*[FromBody] List<MainPage> names, [FromBody] List<MainPage> NamesAdmin*/)
+        public IActionResult SaveNamePages()
         {
             try
             {

@@ -35,6 +35,7 @@ namespace WebApplicationManagerApi.Controllers
                     Id = blog_now.Id,
                     Description = blog_now.Description,
                     Title = blog_now.Title,
+                    Created = blog_now.Created,
                     Image_name = blog_now.ImageUrl,
                     Image_byte = System.IO.File.ReadAllBytes(FilePath),
                 });
@@ -160,8 +161,8 @@ namespace WebApplicationManagerApi.Controllers
         }
 
         [Route("DeleteBlog")]
-        [HttpDelete]
-        public IActionResult DeleteBlog([FromBody] int id)
+        [HttpDelete("id")]
+        public IActionResult DeleteBlog(int id)
         {
             Context.Blogs.Remove(GetBlog(id));
             Context.SaveChanges();
