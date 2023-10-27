@@ -31,7 +31,7 @@ namespace WebApplicationManagerApi.Controllers
 
         [Route("GetSocialNet")]
         [HttpGet]
-        public IQueryable<SocialNet_with_image> GetSocialNet()
+        public async Task<IQueryable<SocialNet_with_image>> GetSocialNetAsync()
         {
             IQueryable<SocialNet> nets = Context.SocialNets;
             List<SocialNet_with_image> nets_s = new List<SocialNet_with_image>();
@@ -45,14 +45,14 @@ namespace WebApplicationManagerApi.Controllers
                     Id = net_now.Id,
                     Url = net_now.Url,
                     Image_name = net_now.ImageUrl,
-                    Image_byte = System.IO.File.ReadAllBytes(FilePath),
+                    Image_byte = await System.IO.File.ReadAllBytesAsync(FilePath),
                 });
             }
             return nets_s.AsQueryable();
         }
         [Route("GetContactsModel")]
         [HttpGet]
-        public ContactsModel GetContactsModel()
+        public async Task<ContactsModel> GetContactsModel()
         {
             //IQueryable<SocialNet> nets = Context.SocialNets;
             //List<SocialNet_with_image> nets_s = new List<SocialNet_with_image>();
@@ -71,13 +71,14 @@ namespace WebApplicationManagerApi.Controllers
             string uploadPath = Path.Combine(currentDirectory, "Images");
             string image_address_name = Context.Contacts.First(i => i.Id == 1).Description;
             string FilePath_address = Path.Combine(uploadPath, image_address_name);
+            IQueryable<SocialNet_with_image> nets = await GetSocialNetAsync();
             ContactsModel model = new()
             {
                 Contacts = Context.Contacts.Where(i => i.Id != 1),
-                Nets = GetSocialNet(),
+                Nets = nets, 
                 Name_page = Context.MainPage.First(i => i.Id == 5).Value,
                 Image_name = image_address_name,
-                Image_byte = System.IO.File.ReadAllBytes(FilePath_address)
+                Image_byte = await System.IO.File.ReadAllBytesAsync(FilePath_address)
             };
             return model;
         }
@@ -89,7 +90,7 @@ namespace WebApplicationManagerApi.Controllers
         {
             try
             {
-                var form = Request.ReadFormAsync().Result;
+                var form = await Request.ReadFormAsync();
                 var contactsJson = form["contacts"];
                 var image = form.Files.GetFile("image");
 
@@ -131,7 +132,7 @@ namespace WebApplicationManagerApi.Controllers
             try
             {
                 //files.filename == socialnetswithimage.image_name
-                var form = Request.ReadFormAsync().Result;
+                var form = await Request.ReadFormAsync();
                 var socialNetsJson = form["SocialNets"];
                 var files = form.Files.GetFiles("files");
                 var edit_socialNets = JsonConvert.DeserializeObject<List<SocialNet_with_image>>(socialNetsJson);
@@ -152,10 +153,6 @@ namespace WebApplicationManagerApi.Controllers
                             // Асинхронно копируем содержимое файла в поток
                             await item.CopyToAsync(fileStream);
                         }
-                        //SocialNet new_net = new SocialNet();
-                        //new_net.Id = Net_now.Id;
-                        //edit_socialnets.Add(new_net);
-
                     }
                 
 

@@ -21,7 +21,7 @@ namespace WebApplicationManagerApi.Controllers
         }
         [Route("GetBlogs")]
         [HttpGet]
-        public BlogsModel GetBlogs()
+        public async Task<BlogsModel> GetBlogs()
         {
             IQueryable<Blog> blogs = Context.Blogs;
             string currentDirectory = AppDomain.CurrentDomain.BaseDirectory;
@@ -37,7 +37,7 @@ namespace WebApplicationManagerApi.Controllers
                     Title = blog_now.Title,
                     Created = blog_now.Created,
                     Image_name = blog_now.ImageUrl,
-                    Image_byte = System.IO.File.ReadAllBytes(FilePath),
+                    Image_byte = await System.IO.File.ReadAllBytesAsync(FilePath),
                 });
             }
             BlogsModel model = new()
@@ -55,7 +55,7 @@ namespace WebApplicationManagerApi.Controllers
         }
         [Route("GetBlogModel")]
         [HttpGet("id")]
-        public BlogModel GetBlogModel(int id)
+        public async Task<BlogModel> GetBlogModel(int id)
         {
             Blog blog_now = Context.Blogs.FirstOrDefault(i => i.Id == id);
             string currentDirectory = AppDomain.CurrentDomain.BaseDirectory;
@@ -68,7 +68,7 @@ namespace WebApplicationManagerApi.Controllers
                 Description = blog_now.Description,
                 Created = blog_now.Created,
                 Image_name = blog_now.ImageUrl,
-                Image_byte = System.IO.File.ReadAllBytes(FilePath),
+                Image_byte = await System.IO.File.ReadAllBytesAsync(FilePath),
             };
             BlogModel model = new()
             {
@@ -123,7 +123,7 @@ namespace WebApplicationManagerApi.Controllers
         {
             try
             {
-                var form = Request.ReadFormAsync().Result;
+                var form = await Request.ReadFormAsync();
                 var edit_blog_json = form["edit_blog"];
                 Blog edit_blog = JsonConvert.DeserializeObject<Blog>(edit_blog_json);
                 IFormFile image = form.Files.GetFile("image");

@@ -19,13 +19,11 @@ namespace WebApplicationManagerApi.Controllers
 
         private readonly ApplicationDbContext Context;
         private readonly ILogger<MainController> _logger;
-        private readonly IWebHostEnvironment webHost;
 
-        public MainController(ILogger<MainController> logger, ApplicationDbContext context, IWebHostEnvironment WebHost)
+        public MainController(ILogger<MainController> logger, ApplicationDbContext context)
         {
             Context = context;
             _logger = logger;
-            webHost = WebHost;
         }
 
         [Route("GetMains")]
@@ -37,7 +35,7 @@ namespace WebApplicationManagerApi.Controllers
 
         [Route("GetMainsIndexPage")]
         [HttpGet]
-        public MainPageUploadModel GetMainsIndexPage()
+        public async Task<MainPageUploadModel> GetMainsIndexPage()
         {
             // Butt_main, Title, Image_main, Main_request
             IQueryable<MainPage> data = Context.MainPage.Where(item => item.Id >= 6 && item.Id <= 9);
@@ -50,7 +48,7 @@ namespace WebApplicationManagerApi.Controllers
                 Title = data.First(i => i.Id == 7).Value,
                 ButtonTitle = data.First(i => i.Id == 6).Value,
                 RequestTitle = data.First(i => i.Id == 9).Value,
-                Image_byte = System.IO.File.ReadAllBytes(FilePath),
+                Image_byte = await System.IO.File.ReadAllBytesAsync(FilePath),
             };
             return model;
         }
@@ -107,7 +105,7 @@ namespace WebApplicationManagerApi.Controllers
                 tempRequests = Context.Requests.Where(i => i.StatusId == Status.Id).ToList();
             }
             else
-                tempRequests = Context.Requests.ToList();
+            tempRequests = Context.Requests.ToList();
             SetStatusRequests(ref tempRequests);
             return tempRequests.AsQueryable();
         }
@@ -177,13 +175,12 @@ namespace WebApplicationManagerApi.Controllers
         }
         [Route("AddRequest")]
         [HttpPost]
-        public void AddRequest()
+        public async Task AddRequest()
         {
-            //переделать
-            var data = Request.ReadFormAsync().Result;
+            var data = await Request.ReadFormAsync();
             string new_request_json = data["request"];
             Request new_request = JsonConvert.DeserializeObject<Request>(new_request_json);
-            Context.Requests.Add(new_request);
+            await Context.Requests.AddAsync(new_request);
             Context.SaveChanges();
         }
         [Route("GetCountRequests")]
@@ -214,7 +211,7 @@ namespace WebApplicationManagerApi.Controllers
         {
             try
             {
-                var data = Request.ReadFormAsync().Result;
+                var data = await Request.ReadFormAsync();
                 var main_form_json = data["form"];
                 MainForm form = JsonConvert.DeserializeObject<MainForm>(main_form_json);
                 IFormFile image = data.Files.GetFile("image");
@@ -269,11 +266,11 @@ namespace WebApplicationManagerApi.Controllers
         }
         [Route("SaveNamePages")]
         [HttpPost]
-        public IActionResult SaveNamePages()
+        public async Task<IActionResult> SaveNamePages()
         {
             try
             {
-                var form = Request.ReadFormAsync().Result;
+                var form = await Request.ReadFormAsync();
                 var namesJson = form["names"];
                 var NamesAdminJson = form["NamesAdmin"];
 
