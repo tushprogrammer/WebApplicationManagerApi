@@ -91,11 +91,9 @@ namespace WebApplicationManagerApi.Controllers
             {
                 var form = Request.ReadFormAsync().Result;
                 var contactsJson = form["contacts"];
-                var socialNetsJson = form["socialNets"];
                 var image = form.Files.GetFile("image");
 
                 var edit_contacts = JsonConvert.DeserializeObject<List<Contacts>>(contactsJson);
-                var edit_socialNets = JsonConvert.DeserializeObject<List<SocialNet>>(socialNetsJson);
 
 
                 if (image != null)
@@ -114,13 +112,8 @@ namespace WebApplicationManagerApi.Controllers
                        $"UPDATE [Contacts] SET Description = N'{UniqueName}' WHERE Id = 1");
 
                 }
-                var oldContacts = Context.Contacts;
-                var oldSocialNets = Context.SocialNets;
-                Context.SocialNets.RemoveRange(oldSocialNets);
-                Context.Contacts.RemoveRange(oldContacts.Where(i => i.Id != 1)); //удалить все элементы в таблице кроме первой картинки
-
-
-                Context.SocialNets.AddRange(edit_socialNets);
+                var oldContacts = Context.Contacts;                
+                Context.Contacts.RemoveRange(oldContacts.Where(i => i.Id != 1));                
                 Context.Contacts.AddRange(edit_contacts);
 
                 Context.SaveChanges();
@@ -131,25 +124,55 @@ namespace WebApplicationManagerApi.Controllers
                 return BadRequest($"Произошла ошибка: {ex.Message}");
             }
         }
-        [Route("SaveNewImageSocialNets")]
+        [Route("SaveSocialNets")]
         [HttpPost]
-        public IActionResult SaveNewImageSocialNets([FromBody] List<IFormFile> files)
+        public async Task<IActionResult> SaveSocialNetsAsync()
         {
             try
             {
+                //files.filename == socialnetswithimage.image_name
+                var form = Request.ReadFormAsync().Result;
+                var socialNetsJson = form["SocialNets"];
+                var files = form.Files.GetFiles("files");
+                var edit_socialNets = JsonConvert.DeserializeObject<List<SocialNet_with_image>>(socialNetsJson);
+                List<SocialNet> edit_socialnets = new List<SocialNet>();
+                
                 if (files != null)
-                //if (Request.Form.Files != null)
                 {
                     foreach (IFormFile item in files)
                     {
-                        string uploadPath =
-                        Path.Combine(webHost.WebRootPath, "Images");
+                        SocialNet_with_image Net_now = edit_socialNets.First(i => i.Image_name == item.FileName);
+                        string currentDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                        string uploadPath = Path.Combine(currentDirectory, "Images");
                         string UniqueName = Guid.NewGuid().ToString() + "_" + item.FileName;
+                        Net_now.Image_name = UniqueName;
                         string FilePath = Path.Combine(uploadPath, UniqueName);
-                        item.CopyTo(new FileStream(FilePath, FileMode.Create));
+                        using (var fileStream = new FileStream(FilePath, FileMode.Create))
+                        {
+                            // Асинхронно копируем содержимое файла в поток
+                            await item.CopyToAsync(fileStream);
+                        }
+                        //SocialNet new_net = new SocialNet();
+                        //new_net.Id = Net_now.Id;
+                        //edit_socialnets.Add(new_net);
+
                     }
                 
+
                 }
+                foreach (SocialNet_with_image item in edit_socialNets)
+                {
+                    SocialNet new_net = new SocialNet();
+                    new_net.Id = item.Id;
+                    new_net.ImageUrl = item.Image_name;
+                    new_net.Url = item.Url;
+                    edit_socialnets.Add(new_net);
+                }
+
+                var oldSocialNets = Context.SocialNets;
+                Context.SocialNets.RemoveRange(oldSocialNets);
+                Context.SocialNets.AddRange(edit_socialnets);
+                Context.SaveChanges();
                 return Ok();
             }
             catch (Exception ex)
